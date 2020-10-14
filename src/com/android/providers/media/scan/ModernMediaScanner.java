@@ -495,8 +495,14 @@ public class ModernMediaScanner implements MediaScanner {
             } else if (MediaFile.isPlayListMimeType(mimeType)) {
                 return scanItemPlaylist(existingId, file, attrs, mimeType, volumeName);
             } else if (MediaFile.isAudioMimeType(mimeType)) {
+                if (notSupportAudio(file)) {
+                    return null;
+                }
                 return scanItemAudio(existingId, file, attrs, mimeType, volumeName);
             } else if (MediaFile.isVideoMimeType(mimeType)) {
+                if (notSupportVideo(file)) {
+                    return null;
+                }
                 return scanItemVideo(existingId, file, attrs, mimeType, volumeName);
             } else if (MediaFile.isImageMimeType(mimeType)) {
                 return scanItemImage(existingId, file, attrs, mimeType, volumeName);
@@ -907,6 +913,44 @@ public class ModernMediaScanner implements MediaScanner {
         } else {
             return Build.TIME / 1000;
         }
+    }
+
+    static boolean notSupportVideo(File file){
+        final String name = file.getName();
+        final String[] vdfilename = { "mov", "divx", "xvid", "wmv", "rm", "rmvb", "mvc", "mpg", "flv"};
+        int lastDot = name.lastIndexOf('.');
+        if (lastDot < 0)
+            return false;
+        final String filetype = name.substring(lastDot + 1);
+
+        if (vdfilename.length > 0) {
+            for (int i = 0; i < vdfilename.length; i++) {
+                if (filetype.toLowerCase().startsWith(vdfilename[i])) {
+                     if (LOGW) Log.w(TAG, name + "\t not support " + vdfilename[i] + " file format");
+                     return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    static boolean notSupportAudio(File file){
+        final String name = file.getName();
+        final String[] adfilename = { "ac3", "wma"};
+        int lastDot = name.lastIndexOf('.');
+        if (lastDot < 0)
+            return false;
+        final String filetype = name.substring(lastDot + 1);
+
+        if (adfilename.length > 0) {
+            for (int i = 0; i < adfilename.length; i++) {
+                if (filetype.toLowerCase().startsWith(adfilename[i])) {
+                     if (LOGW) Log.w(TAG, name + "\t not support " + adfilename[i] + " file format");
+                     return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**
