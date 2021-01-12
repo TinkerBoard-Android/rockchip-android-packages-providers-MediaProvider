@@ -936,7 +936,7 @@ public class ModernMediaScanner implements MediaScanner {
 
     static boolean notSupportAudio(File file){
         final String name = file.getName();
-        final String[] adfilename = { "ac3", "wma"};
+        final String[] adfilename = { "ac3", "wma","dts","rm"};
         int lastDot = name.lastIndexOf('.');
         if (lastDot < 0)
             return false;
