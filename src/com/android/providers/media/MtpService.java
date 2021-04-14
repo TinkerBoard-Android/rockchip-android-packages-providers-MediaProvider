@@ -44,6 +44,15 @@ import java.io.File;
 import java.io.FileDescriptor;
 import java.util.HashMap;
 
+import android.os.FileObserver;
+import java.io.IOException;
+
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+import java.io.InputStream;
+
+import android.os.SystemProperties;
 /**
  * The singleton service backing instances of MtpServer that are started for the foreground user.
  * The service has the responsibility of retrieving user storage information and managing server
@@ -51,6 +60,7 @@ import java.util.HashMap;
  */
 public class MtpService extends Service {
     private static final String TAG = "MtpService";
+    private BootLogoObserver mBootLogoObserver;
     private static final boolean LOGD = false;
 
     // We restrict PTP to these subdirectories
@@ -121,6 +131,7 @@ public class MtpService extends Service {
 
     @Override
     public void onDestroy() {
+
         mStorageManager.unregisterListener(mStorageEventListener);
         synchronized (MtpService.class) {
             if (sServerHolder != null) {
@@ -209,6 +220,9 @@ public class MtpService extends Service {
                 }
             }
             server.start();
+
+		mBootLogoObserver = new BootLogoObserver();
+		mBootLogoObserver.startWatching();
         }
     }
 
@@ -267,4 +281,56 @@ public class MtpService extends Service {
             }
         }
     }
+
+	private static class BootLogoObserver extends FileObserver {
+		final static String pathToWatch = "/data/media";
+		final static String bootLogoPath = "/data/media/0/boot_logo.bmp";
+		final static String bootLogoDonePath = "/data/media/0/boot_logo_done.bmp";
+		final static String splashPartition = "/dev/block/by-name/splash";
+
+		public BootLogoObserver() {
+			super(new File(pathToWatch), FileObserver.CLOSE_NOWRITE);
+			Log.e(TAG, " BootLogoObserver   pathToWatch = " +  pathToWatch);
+		}
+
+		 public void copyFileUsingStream(File source, File dest) throws IOException {
+			InputStream is = null;
+			OutputStream os = null;
+			Log.e(TAG, " BootLogoObserver: copyFileUsingStream");
+			try {
+				is = new FileInputStream(source);
+				os = new FileOutputStream(dest, false);
+				byte[] buffer = new byte[1024];
+				int length;
+
+				while ((length = is.read(buffer)) > 0) {
+					os.write(buffer, 0, length);
+				}
+			} finally {
+				if (is != null) is.close();
+				if (os != null) os.close();
+			}
+		}
+
+		@Override
+		public void onEvent(int event, String path) {
+			File f = new File(bootLogoPath);
+			if ( f.exists() && !f.isDirectory()) {
+				Log.e(TAG, " BootLogoObserver: " + bootLogoPath + " exist, event= " + Integer.toHexString(event) + " path= " + path);
+				if (((event & FileObserver.CLOSE_NOWRITE) != 0) &&
+					!"0".equals(path)) {
+					File dest = new File(splashPartition);
+					File new_name= new  File(bootLogoDonePath);
+
+					SystemProperties.set("sys.boot_logo.exist", "1");
+					try {
+						copyFileUsingStream(f, dest);
+						f.renameTo(new_name);
+					} catch ( IOException e) {
+						Log.e(TAG, "BootLogoObserver: copy dest fail ", e);
+					}
+				}
+			}
+		}
+	}
 }
